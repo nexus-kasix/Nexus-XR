@@ -133,11 +133,11 @@
         }
       });
 
-      // Обновление текста кнопки переключения вебкама на основе видимости
+      // Обновление текста кнопки переключения веб-камеры
       const toggleWebcamButton = document.getElementById('toggle-video-background-button');
       if (toggleWebcamButton) {
-        const videoPlaneVisible = window.videoPlaneVisible || false; // Отслеживание видимости
-        toggleWebcamButton.textContent = videoPlaneVisible ? translations[lang].disableWebcam : translations[lang].enableWebcam;
+        const key = window.videoPlaneVisible ? 'disableWebcam' : 'enableWebcam';
+        toggleWebcamButton.textContent = translations[lang][key];
       }
     }
 
@@ -181,17 +181,15 @@
         return;
       }
 
-      // Открытие цветового пикера при нажатии на кнопку
       backgroundColorButton.addEventListener('click', () => {
-        colorPicker.click(); // Триггерим клик на скрытом цветовом пикере
+        colorPicker.click();
       });
 
-      // Обработка выбранного цвета
       colorPicker.addEventListener('input', (event) => {
         const selectedColor = event.target.value;
         document.body.style.backgroundColor = selectedColor;
 
-        // Установка цвета фона сцены в Three.js
+        // Обновляем цвет фона сцены Three.js
         if (typeof setSceneBackgroundColor === 'function') {
           setSceneBackgroundColor(selectedColor);
         }
