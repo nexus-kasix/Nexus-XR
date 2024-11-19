@@ -1,10 +1,12 @@
 {
   "dependencies": {
+    "digitalbacon-ui": "^0.1.8",
     "dotenv": "^16.4.5",
     "gsap": "^3.12.5",
     "react": "^18.3.1",
     "rollup": "^4.21.3",
     "three": "^0.168.0",
+    "three-mesh-ui": "^6.5.4",
     "webxr-polyfill": "^2.0.3"
   },
   "devDependencies": {

@@ -1,34 +1,62 @@
-import WebXRPolyfill from 'webxr-polyfill';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-import { DragControls } from 'three/examples/jsm/controls/DragControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
-
-// Инициализация WebXR Polyfill
-const polyfill = new WebXRPolyfill();
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
+import { DragControls } from "three/examples/jsm/controls/DragControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory.js";
+import ThreeMeshUI from "three-mesh-ui";
 
 let camera, scene, renderer, controls, dragControls;
 let listener, sound;
 let controller1, controller2;
 let draggableObjects = [];
 let video, videoTexture, videoMaterial, videoPlane;
-let xrSessionActive = false;
+let uiContainer;
 let isInitialized = false;
+
+// Function to setup UI
+async function setupUI() {
+  // Create container block
+  uiContainer = new ThreeMeshUI.Block({
+    width: 2,
+    height: 1,
+    padding: 0.2,
+    fontFamily: "https://unpkg.com/three-mesh-ui/examples/assets/Roboto-msdf.json",
+    fontTexture: "https://unpkg.com/three-mesh-ui/examples/assets/Roboto-msdf.png",
+    backgroundColor: new THREE.Color(0x333333),
+    backgroundOpacity: 0.8
+  });
+
+  // Position the container
+  uiContainer.position.set(0, 1.6, -2);
+  uiContainer.rotation.x = -0.15;
+
+  // Create text
+  const text = new ThreeMeshUI.Text({
+    content: "Hello, MRWeb!",
+    fontSize: 0.1,
+    fontColor: new THREE.Color(0xffffff),
+  });
+
+  // Add text to container
+  uiContainer.add(text);
+
+  // Add container to scene
+  scene.add(uiContainer);
+}
 
 // Проверка поддержки WebXR
 async function checkXRSupport() {
   if (!navigator.xr) {
-    console.warn('WebXR не поддерживается - использование не-VR режима');
+    console.warn("WebXR не поддерживается - использование не-VR режима");
     return false;
   }
 
   try {
-    const supported = await navigator.xr.isSessionSupported('immersive-vr');
+    const supported = await navigator.xr.isSessionSupported("immersive-vr");
     return supported;
   } catch (e) {
-    console.warn('Ошибка проверки поддержки WebXR:', e);
+    console.warn("Ошибка проверки поддержки WebXR:", e);
     return false;
   }
 }
@@ -37,6 +65,7 @@ async function checkXRSupport() {
 function render() {
   if (controls) controls.update();
   if (videoTexture) videoTexture.needsUpdate = true;
+  ThreeMeshUI.update();
   renderer.render(scene, camera);
 }
 
@@ -54,6 +83,7 @@ async function init() {
   setupRenderer(hasXRSupport);
   setupLighting();
   setupControls();
+  setupUI();
 
   if (hasXRSupport) {
     setupControllers();
@@ -66,7 +96,7 @@ async function init() {
   setupBackgroundColorButton();
   setupUploadButton();
 
-  window.addEventListener('resize', onWindowResize);
+  window.addEventListener("resize", onWindowResize);
 
   isInitialized = true;
 
@@ -77,6 +107,7 @@ async function init() {
 // Запуск инициализации
 init();
 
+// Modified setupScene function
 function setupScene() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xdddddd);
@@ -87,18 +118,18 @@ function setupCamera() {
     75,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    1000,
   );
   camera.position.set(0, 1.6, 3);
 }
 
 // Modified renderer setup
 function setupRenderer(hasXRSupport) {
-  renderer = new THREE.WebGLRenderer({ 
+  renderer = new THREE.WebGLRenderer({
     antialias: true,
-    alpha: true 
+    alpha: true,
   });
-  
+
   if (hasXRSupport) {
     try {
       renderer.xr.enabled = true;
@@ -107,10 +138,10 @@ function setupRenderer(hasXRSupport) {
         document.body.appendChild(vrButton);
       }
     } catch (error) {
-      console.warn('WebXR initialization failed:', error);
+      console.warn("WebXR initialization failed:", error);
     }
   }
-  
+
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -142,27 +173,38 @@ function setupControllers() {
     new THREE.Vector3(0, 0, -1),
   ]);
 
-  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+  const lineMaterial = new THREE.LineBasicMaterial({
+    color: 0xffffff,
+    linewidth: 2,
+  });
   const line = new THREE.Line(geometry, lineMaterial);
-  line.name = 'line';
+  line.name = "line";
   line.scale.z = 5;
   controller1.add(line.clone());
   controller2.add(line.clone());
   const controllerModelFactory = new XRControllerModelFactory();
   const controllerGrip1 = renderer.xr.getControllerGrip(0);
-  controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+  controllerGrip1.add(
+    controllerModelFactory.createControllerModel(controllerGrip1),
+  );
   scene.add(controllerGrip1);
   const controllerGrip2 = renderer.xr.getControllerGrip(1);
-  controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+  controllerGrip2.add(
+    controllerModelFactory.createControllerModel(controllerGrip2),
+  );
   scene.add(controllerGrip2);
 }
 
 function setupDragControls() {
-  dragControls = new DragControls(draggableObjects, camera, renderer.domElement);
-  dragControls.addEventListener('dragstart', () => {
+  dragControls = new DragControls(
+    draggableObjects,
+    camera,
+    renderer.domElement,
+  );
+  dragControls.addEventListener("dragstart", () => {
     controls.enabled = false;
   });
-  dragControls.addEventListener('dragend', () => {
+  dragControls.addEventListener("dragend", () => {
     controls.enabled = true;
   });
 }
@@ -174,7 +216,7 @@ function loadSound() {
   sound = new THREE.Audio(listener);
   const audioLoader = new THREE.AudioLoader();
   audioLoader.load(
-    './src/System/audio/sound.wav',
+    "./src/System/audio/sound.wav",
     (buffer) => {
       sound.setBuffer(buffer);
       sound.setLoop(false);
@@ -183,30 +225,32 @@ function loadSound() {
     },
     undefined,
     (err) => {
-      console.error('Error loading sound:', err);
-    }
+      console.error("Error loading sound:", err);
+    },
   );
 }
 
 function setupUploadButton() {
-  const uploadButton = document.getElementById('upload-button');
-  const fileInput = document.getElementById('file-input');
+  const uploadButton = document.getElementById("upload-button");
+  const fileInput = document.getElementById("file-input");
 
   if (!uploadButton || !fileInput) {
-    console.error('Не удалось найти элементы upload-button или file-input в DOM.');
+    console.error(
+      "Не удалось найти элементы upload-button или file-input в DOM.",
+    );
     return;
   }
 
-  uploadButton.addEventListener('click', () => {
+  uploadButton.addEventListener("click", () => {
     fileInput.click();
   });
 
-  fileInput.addEventListener('change', (event) => {
+  fileInput.addEventListener("change", (event) => {
     const file = event.target.files[0];
     if (file) {
       loadGLTFModel(file);
     } else {
-      console.log('Файл не выбран.');
+      console.log("Файл не выбран.");
     }
   });
 }
@@ -226,14 +270,14 @@ function loadGLTFModel(file) {
     },
     undefined,
     (error) => {
-      console.error('Ошибка при загрузке GLTF модели:', error);
-    }
+      console.error("Ошибка при загрузке GLTF модели:", error);
+    },
   );
 }
 
 function setupWebcamBackground() {
-  video = document.createElement('video');
-  video.style.display = 'none';
+  video = document.createElement("video");
+  video.style.display = "none";
   video.autoplay = true;
   video.muted = true;
   video.playsInline = true;
@@ -261,8 +305,8 @@ function setupWebcamBackground() {
       updateVideoPlane();
     })
     .catch((error) => {
-      console.warn('Ошибка доступа к веб-камере:', error);
-      // Можно установить фоновый цвет или изображение по умолчанию
+      console.warn("Ошибка доступа к веб-камере:", error);
+      // Можно установить фоновый цвет или ��зображение по умолчанию
     });
 }
 
@@ -279,41 +323,50 @@ function updateVideoPlane() {
 }
 
 function setupToggleVideoBackgroundButton() {
-  const toggleVideoBackgroundButton = document.getElementById('toggle-video-background-button');
+  const toggleVideoBackgroundButton = document.getElementById(
+    "toggle-video-background-button",
+  );
 
   if (!toggleVideoBackgroundButton) {
-    console.error('Не удалось найти элемент toggle-video-background-button в DOM.');
+    console.error(
+      "Не удалось найти элемент toggle-video-background-button в DOM.",
+    );
     return;
   }
 
-  toggleVideoBackgroundButton.addEventListener('click', () => {
+  toggleVideoBackgroundButton.addEventListener("click", () => {
     if (videoPlane) {
       videoPlane.visible = !videoPlane.visible;
       window.videoPlaneVisible = videoPlane.visible;
 
       // Обновляем текст кнопки на основе языка
-      const key = videoPlane.visible ? 'disableWebcam' : 'enableWebcam';
-      toggleVideoBackgroundButton.textContent = translations[currentLanguage][key];
+      const key = videoPlane.visible ? "disableWebcam" : "enableWebcam";
+      toggleVideoBackgroundButton.textContent =
+        translations[currentLanguage][key];
     } else {
-      alert('Видео фон недоступен.');
+      alert("Видео фон недоступен.");
     }
   });
 }
 
 function setupBackgroundColorButton() {
-  const backgroundColorButton = document.getElementById('background-color-button');
-  const colorPicker = document.getElementById('color-picker');
+  const backgroundColorButton = document.getElementById(
+    "background-color-button",
+  );
+  const colorPicker = document.getElementById("color-picker");
 
   if (!backgroundColorButton || !colorPicker) {
-    console.error('Не удалось найти элементы background-color-button или color-picker в DOM.');
+    console.error(
+      "Не удалось найти элементы background-color-button или color-picker в DOM.",
+    );
     return;
   }
 
-  backgroundColorButton.addEventListener('click', () => {
+  backgroundColorButton.addEventListener("click", () => {
     colorPicker.click();
   });
 
-  colorPicker.addEventListener('input', (event) => {
+  colorPicker.addEventListener("input", (event) => {
     const selectedColor = event.target.value;
     document.body.style.backgroundColor = selectedColor;
     if (window.setSceneBackgroundColor) {
