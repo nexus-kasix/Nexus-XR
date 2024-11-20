@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 let camera, scene, renderer;
+let currentAnimationFrame = null;
 
 init();
 animate();
@@ -25,7 +26,10 @@ function init() {
     window.addEventListener('resize', onWindowResize);
 
     // Handle Start button click to load the next scene
-    document.getElementById('startButton').addEventListener('click', loadSystemScene);
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.addEventListener('click', loadSystemScene);
+    }
 }
 
 function onWindowResize() {
@@ -35,24 +39,53 @@ function onWindowResize() {
 }
 
 function animate() {
-    requestAnimationFrame(animate);
-    // Render the scene
+    currentAnimationFrame = requestAnimationFrame(animate);
     renderer.render(scene, camera);
 }
 
-function loadSystemScene() {
-    // Remove start button and clean up current scene
-    document.getElementById('startButton').remove();
+function cleanupCurrentScene() {
+    // Остановить текущую анимацию
+    if (currentAnimationFrame !== null) {
+        cancelAnimationFrame(currentAnimationFrame);
+        currentAnimationFrame = null;
+    }
 
-    // Dispose of current renderer if needed
-    // renderer.dispose(); // Commented out to prevent issues
+    // Очистить сцену
+    while(scene.children.length > 0) { 
+        scene.remove(scene.children[0]); 
+    }
 
-    // Dynamically load and switch to system.js
-    import('./src/System/scenes/system.js').then((module) => {
-    }).catch((error) => {
+    // Удалить обработчики событий
+    window.removeEventListener('resize', onWindowResize);
+}
+
+async function loadSystemScene() {
+    // Удалить кнопку старта
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.remove();
+    }
+
+    try {
+        // Очистить текущую сцену
+        cleanupCurrentScene();
+
+        // Импортировать и инициализировать system.js
+        const systemModule = await import('./src/System/scenes/system.js');
+        
+        // Передать текущий рендерер в system.js
+        if (typeof systemModule.initSystem === 'function') {
+            systemModule.initSystem(renderer);
+        } else {
+            console.error('system.js does not export initSystem function');
+        }
+    } catch (error) {
         console.error('Failed to load system.js:', error);
-    });
+    }
 }
 
 console.log(import.meta.env.VITE_API_KEY);
 console.log(import.meta.env.VITE_APP_TITLE);
+
+// Экспортируем для использования в других модулях
+export { renderer, camera, scene };

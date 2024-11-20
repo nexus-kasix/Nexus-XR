@@ -14,6 +14,35 @@ let video, videoTexture, videoMaterial, videoPlane;
 let uiContainer;
 let isInitialized = false;
 
+// Экспортируем функцию инициализации для вызова из Main.js
+export async function initSystem(existingRenderer) {
+  if (isInitialized) return;
+  
+  renderer = existingRenderer;
+  renderer.xr.enabled = true; // Enable XR on the renderer
+
+  setupScene();
+  setupCamera();
+  setupLighting();
+  setupControls();
+  setupUI();
+  
+  setupVRButton(); // Call this unconditionally
+  setupControllers();
+  
+  setupDragControls();
+  loadSound();
+  setupToggleVideoBackgroundButton();
+  setupWebcamBackground();
+  setupBackgroundColorButton();
+  setupUploadButton();
+
+  window.addEventListener("resize", onWindowResize);
+
+  isInitialized = true;
+  animate();
+}
+
 // Function to setup UI
 async function setupUI() {
   // Create container block
@@ -45,22 +74,6 @@ async function setupUI() {
   scene.add(uiContainer);
 }
 
-// Проверка поддержки WebXR
-async function checkXRSupport() {
-  if (!navigator.xr) {
-    console.warn("WebXR не поддерживается - использование не-VR режима");
-    return false;
-  }
-
-  try {
-    const supported = await navigator.xr.isSessionSupported("immersive-vr");
-    return supported;
-  } catch (e) {
-    console.warn("Ошибка проверки поддержки WebXR:", e);
-    return false;
-  }
-}
-
 // Определяем функцию render
 function render() {
   if (controls) controls.update();
@@ -69,45 +82,12 @@ function render() {
   renderer.render(scene, camera);
 }
 
-// Анимационный цикл
+// ��нимационный цикл
 function animate() {
   renderer.setAnimationLoop(render);
 }
 
 // Инициализация сцены
-async function init() {
-  const hasXRSupport = await checkXRSupport();
-
-  setupScene();
-  setupCamera();
-  setupRenderer(hasXRSupport);
-  setupLighting();
-  setupControls();
-  setupUI();
-
-  if (hasXRSupport) {
-    setupControllers();
-  }
-
-  setupDragControls();
-  loadSound();
-  setupToggleVideoBackgroundButton();
-  setupWebcamBackground();
-  setupBackgroundColorButton();
-  setupUploadButton();
-
-  window.addEventListener("resize", onWindowResize);
-
-  isInitialized = true;
-
-  // Запуск анимационного цикла
-  animate();
-}
-
-// Запуск инициализации
-init();
-
-// Modified setupScene function
 function setupScene() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xdddddd);
@@ -123,31 +103,6 @@ function setupCamera() {
   camera.position.set(0, 1.6, 3);
 }
 
-// Modified renderer setup
-function setupRenderer(hasXRSupport) {
-  renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true,
-  });
-
-  if (hasXRSupport) {
-    try {
-      renderer.xr.enabled = true;
-      const vrButton = VRButton.createButton(renderer);
-      if (vrButton) {
-        document.body.appendChild(vrButton);
-      }
-    } catch (error) {
-      console.warn("WebXR initialization failed:", error);
-    }
-  }
-
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  document.body.appendChild(renderer.domElement);
-}
-
 function setupLighting() {
   // Simple lighting setup
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
@@ -160,7 +115,72 @@ function setupLighting() {
 
 function setupControls() {
   controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.6, 0);
+  controls.update();
   controls.enableDamping = true;
+
+  let gyroEnabled = false;
+
+  // Добавляем поддержку гироскопа для мобильных устройств
+  if (window.DeviceOrientationEvent) {
+    const handleGyroscope = (event) => {
+      if (!gyroEnabled || renderer.xr.isPresenting) return;
+
+      if (event.beta !== null && event.gamma !== null) {
+        const x = THREE.MathUtils.degToRad(event.beta);
+        const y = THREE.MathUtils.degToRad(event.gamma);
+
+        // Плавно поворачиваем камеру
+        const dampingFactor = 0.1;
+        camera.rotation.x += (x - camera.rotation.x) * dampingFactor;
+        camera.rotation.y += (y - camera.rotation.y) * dampingFactor;
+      }
+    };
+
+    window.addEventListener('deviceorientation', handleGyroscope);
+
+    // Для iOS нужно запросить разрешение
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // Создаем кнопку для запроса разрешения гироскопа
+      const gyroButton = document.createElement('button');
+      gyroButton.style.position = 'fixed';
+      gyroButton.style.top = '20px';
+      gyroButton.style.left = '50%';
+      gyroButton.style.transform = 'translateX(-50%)';
+      gyroButton.style.padding = '12px 24px';
+      gyroButton.style.background = '#4CAF50';
+      gyroButton.style.color = 'white';
+      gyroButton.style.border = 'none';
+      gyroButton.style.borderRadius = '8px';
+      gyroButton.style.fontSize = '16px';
+      gyroButton.style.fontWeight = 'bold';
+      gyroButton.style.cursor = 'pointer';
+      gyroButton.style.zIndex = '100';
+      gyroButton.textContent = 'Включить гироскоп';
+
+      gyroButton.addEventListener('click', async () => {
+        try {
+          const response = await DeviceOrientationEvent.requestPermission();
+          if (response === 'granted') {
+            gyroEnabled = true;
+            gyroButton.style.display = 'none';
+            console.log('Gyroscope enabled');
+          }
+        } catch (error) {
+          console.error('Error requesting gyroscope permission:', error);
+          alert('Не удалось получить доступ к гироскопу');
+        }
+      });
+
+      document.body.appendChild(gyroButton);
+    } else {
+      gyroEnabled = true;
+    }
+  }
+}
+
+function setupVRButton() {
+  document.body.appendChild(VRButton.createButton(renderer)); // Use the standard VRButton
 }
 
 function setupControllers() {
@@ -306,7 +326,7 @@ function setupWebcamBackground() {
     })
     .catch((error) => {
       console.warn("Ошибка доступа к веб-камере:", error);
-      // Можно установить фоновый цвет или ��зображение по умолчанию
+      // Можно установить фоновый цвет или изображение по умолчанию
     });
 }
 
