@@ -5,6 +5,9 @@ import { DragControls } from "three/examples/jsm/controls/DragControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory.js";
 import ThreeMeshUI from "three-mesh-ui";
+import WebXRPolyfill from 'webxr-polyfill';
+
+const polyfill = new WebXRPolyfill(); // Initialize the polyfill
 
 let camera, scene, renderer, controls, dragControls;
 let listener, sound;
