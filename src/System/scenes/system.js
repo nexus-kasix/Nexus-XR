@@ -5,9 +5,10 @@ import { DragControls } from "three/examples/jsm/controls/DragControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory.js";
 import ThreeMeshUI from "three-mesh-ui";
-import WebXRPolyfill from 'webxr-polyfill';
 
-const polyfill = new WebXRPolyfill(); // Initialize the polyfill
+// Remove the import and initialization of webxr-polyfill
+// import WebXRPolyfill from 'webxr-polyfill';
+// const polyfill = new WebXRPolyfill();
 
 let camera, scene, renderer, controls, dragControls;
 let listener, sound;
@@ -20,19 +21,32 @@ let isInitialized = false;
 // Экспортируем функцию инициализации для вызова из Main.js
 export async function initSystem(existingRenderer) {
   if (isInitialized) return;
-  
+
   renderer = existingRenderer;
-  renderer.xr.enabled = true; // Enable XR on the renderer
+
+  // Check for WebXR support
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
+    if (isSupported) {
+      renderer.xr.enabled = true;
+      setupVRButton();
+      // Initialize controllers after the XR session starts
+      renderer.xr.addEventListener('sessionstart', () => {
+        setupControllers();
+      });
+    } else {
+      console.warn('WebXR immersive-vr not supported');
+    }
+  } else {
+    console.warn('WebXR not available');
+  }
 
   setupScene();
   setupCamera();
   setupLighting();
   setupControls();
   setupUI();
-  
-  setupVRButton(); // Call this unconditionally
-  setupControllers();
-  
+
   setupDragControls();
   loadSound();
   setupToggleVideoBackgroundButton();
@@ -183,7 +197,11 @@ function setupControls() {
 }
 
 function setupVRButton() {
-  document.body.appendChild(VRButton.createButton(renderer)); // Use the standard VRButton
+  try {
+    document.body.appendChild(VRButton.createButton(renderer));
+  } catch (error) {
+    console.error('Failed to create VRButton:', error);
+  }
 }
 
 function setupControllers() {
